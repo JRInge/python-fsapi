@@ -7,31 +7,9 @@ Python implementation of the Frontier Silicon API
  - https://github.com/p2baron/fsapi
  - https://github.com/zhelev/python-fsapi
 
+This fork is being developed to run on QPython3L. The intent is to add type checking annotations for use with `mypy`, improve the code to make error handling more robust, then adapt it to remove the dependency on `lxml`, which doesn't seem to work on QPython.
+
 Required python libs:
   - requests
   - lxml (had to install it through apt-get, pip3 did not work)
 
-Usage
-=====
-
-```python
-from fsapi import FSAPI
-
-URL = 'http://192.168.1.39:80/device'
-PIN = 1234
-TIMEOUT = 1 # in seconds
-
-fs = FSAPI(URL, PIN, TIMEOUT)
-print('Name: %s' % fs.friendly_name)
-print('Mute: %s' % fs.mute)
-print('Mode: %s' % fs.mode)
-print('Modes: %s' % fs.modes)
-print('Power: %s' % fs.power)
-print('Volume steps: %s' % fs.volume_steps)
-print('Volume: %s' % fs.volume)
-print('Play status: %s' % fs.play_status)
-print('Track name: %s' % fs.play_info_name)
-print('Track text: %s' % fs.play_info_text)
-print('Artist: %s' % fs.play_info_artist)
-print('Album: %s' % fs.play_info_album)
-print('Graphics: %s' % fs.play_info_graphics)
