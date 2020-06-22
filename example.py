@@ -18,4 +18,3 @@ print('Track text: %s' % fs.play_info_text)
 print('Artist: %s' % fs.play_info_artist)
 print('Album: %s' % fs.play_info_album)
 print('Graphics: %s' % fs.play_info_graphics)
-

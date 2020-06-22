@@ -5,6 +5,7 @@ Python implementation of the Frontier Silicon API
  - https://github.com/flammy/fsapi/
  - https://github.com/tiwilliam/fsapi
  - https://github.com/p2baron/fsapi
+ - https://github.com/zhelev/python-fsapi
 
 Required python libs:
   - requests
