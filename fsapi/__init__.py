@@ -9,6 +9,9 @@ from lxml import objectify  # type: ignore
 from typing import Any, Dict, List, Optional, Union, cast
 
 
+DataItem = Union[str, int]
+
+
 class FSAPI(object):
 
     DEFAULT_TIMEOUT_IN_SECONDS = 1
@@ -35,11 +38,11 @@ class FSAPI(object):
         doc = objectify.fromstring(endpoint.content)
         return cast(str, doc.webfsapi.text)
 
-    def create_session(self) -> str:
+    def create_session(self) -> Optional[str]:
         doc = self.call('CREATE_SESSION')
         return cast(str, doc.sessionId.text)
 
-    def call(self, path: str, extra: Optional[Dict[str, Union[int, str]]] = None) -> Optional[Any]:
+    def call(self, path: str, extra: Optional[Dict[str, DataItem]] = None) -> Optional[objectify.ObjectifiedElement]:
         """Execute a frontier silicon API call."""
         try:
             if not self.webfsapi:
@@ -48,7 +51,7 @@ class FSAPI(object):
             if type(extra) is not dict:
                 extra = dict()
 
-            params: Dict[str, Union[int, str]] = dict(
+            params: Dict[str, DataItem] = dict(
                 pin=self.pin,
                 sid=self.sid,
             )
@@ -70,7 +73,7 @@ class FSAPI(object):
 
     # Handlers
 
-    def handle_get(self, item: str) -> Optional[Any]:
+    def handle_get(self, item: str) -> Optional[objectify.ObjectifiedElement]:
         return self.call('GET/{}'.format(item))
 
     def handle_set(self, item: str, value: Any) -> Optional[bool]:
@@ -102,7 +105,7 @@ class FSAPI(object):
 
         return int(doc.value.u32.text) or None
 
-    def handle_list(self, item: str) -> List[Optional[Dict[str, int]]]:
+    def handle_list(self, item: str) -> List[Dict[str, Optional[DataItem]]]:
         doc = self.call('LIST_GET_NEXT/'+item+'/-1', dict(
             maxItems=100,
         ))
@@ -122,7 +125,7 @@ class FSAPI(object):
 
         return ret
 
-    def collect_labels(self, items: List[Optional[Dict[str, int]]]) -> List[str]:
+    def collect_labels(self, items: List[Dict[str, Any]]) -> List[str]:
         if items is None:
             return []
 
@@ -214,7 +217,7 @@ class FSAPI(object):
 
     # Modes
     @property
-    def modes(self) -> List[Optional[Dict[str, int]]]:
+    def modes(self) -> List[Dict[str, Optional[DataItem]]]:
         return self.handle_list('netRemote.sys.caps.validModes')
 
     @property
