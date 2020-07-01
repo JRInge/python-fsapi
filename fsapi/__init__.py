@@ -180,40 +180,40 @@ class FSAPI(object):
         return self.play_control(4)
 
     # Volume
-    def get_volume(self) -> Optional[int]:
+    @property
+    def volume(self) -> Optional[int]:
         return self.handle_int('netRemote.sys.audio.volume')
 
-    def set_volume(self, value: int) -> Optional[bool]:
+    @volume.setter
+    def volume(self, value: int) -> Optional[bool]:
         return self.handle_set('netRemote.sys.audio.volume', value)
 
-    volume = property(get_volume, set_volume)
-
-    # Frienldy name
-    def get_friendly_name(self) -> Optional[str]:
+    # Friendly name
+    @property
+    def friendly_name(self) -> Optional[str]:
         return self.handle_text('netRemote.sys.info.friendlyName')
 
-    def set_friendly_name(self, value: Any) -> Optional[bool]:
+    @friendly_name.setter
+    def friendly_name(self, value: Any) -> Optional[bool]:
         return self.handle_set('netRemote.sys.info.friendlyName', value)
 
-    friendly_name = property(get_friendly_name, set_friendly_name)
-
     # Mute
-    def get_mute(self) -> bool:
+    @property
+    def mute(self) -> bool:
         return bool(self.handle_int('netRemote.sys.audio.mute'))
 
-    def set_mute(self, value: Any = False) -> Optional[bool]:
+    @mute.setter
+    def mute(self, value: Any = False) -> Optional[bool]:
         return self.handle_set('netRemote.sys.audio.mute', int(value))
 
-    mute = property(get_mute, set_mute)
-
     # Power
-    def get_power(self) -> bool:
+    @property
+    def power(self) -> bool:
         return bool(self.handle_int('netRemote.sys.power'))
 
-    def set_power(self, value: Any = False) -> Optional[bool]:
+    @power.setter
+    def power(self, value: Any = False) -> Optional[bool]:
         return self.handle_set('netRemote.sys.power', int(value))
-
-    power = property(get_power, set_power)
 
     # Modes
     @property
@@ -224,7 +224,8 @@ class FSAPI(object):
     def mode_list(self) -> List[str]:
         return self.collect_labels(self.modes)
 
-    def get_mode(self) -> str:
+    @property
+    def mode(self) -> str:
         mode = None
         int_mode = self.handle_long('netRemote.sys.mode')
         for temp_mode in self.modes:
@@ -233,15 +234,14 @@ class FSAPI(object):
 
         return str(mode)
 
-    def set_mode(self, value: int) -> None:
-        mode = -1
+    @mode.setter
+    def mode(self, value: str) -> None:
+        mode: DataItem = "-1"
         for temp_mode in self.modes:
             if temp_mode['label'] == value:
                 mode = temp_mode['band']
 
         self.handle_set('netRemote.sys.mode', mode)
-
-    mode = property(get_mode, set_mode)
 
     @property
     def duration(self) -> Optional[int]:
