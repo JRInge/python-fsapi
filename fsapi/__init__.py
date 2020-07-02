@@ -5,9 +5,11 @@ For example internet radios from: Medion, Hama, Auna, ...
 import requests
 import logging
 import xml.etree.ElementTree as ET
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional,\
+                   Tuple, Type, TypeVar, Union
 
-
+A = TypeVar('A')
+B = TypeVar('B')
 DataItem = Union[str, int]
 
 
@@ -28,12 +30,15 @@ class FSAPI(object):
                  timeout: int = DEFAULT_TIMEOUT_IN_SECONDS):
         self.pin = pin
         self.sid: Optional[str] = None
-        self.webfsapi: Optional[str] = None
         self.fsapi_device_url = fsapi_device_url
         self.timeout = timeout
 
         self.webfsapi = self.get_fsapi_endpoint()
         self.sid = self.create_session()
+
+    def __del__(self) -> None:
+        if self.sid is not None:
+            self.call('DELETE_SESSION')
 
     @staticmethod
     def unpack_xml(root: Optional[ET.Element], key: str) -> Optional[str]:
@@ -41,6 +46,13 @@ class FSAPI(object):
             element = root.find(key)
             if hasattr(element, "text"):
                 return str(element.text)  # type: ignore
+        return None
+
+    @staticmethod
+    def maybe(val: Optional[A],
+              fn: Union[Callable[[A], B], Type[B]]) -> Optional[B]:
+        if val is not None:
+            return fn(val)  # type: ignore
         return None
 
     def get_fsapi_endpoint(self) -> str:
@@ -109,28 +121,19 @@ class FSAPI(object):
     def handle_set(self, item: str, value: Any) -> Optional[bool]:
         status = self.unpack_xml(self.call('SET/{}'.format(item),
                                  dict(value=value)), "status")
-        if status is None:
-            return None
-
-        return status == 'FS_OK'
+        return self.maybe(status, lambda x: x == 'FS_OK')
 
     def handle_text(self, item: str) -> Optional[str]:
         return self.unpack_xml(self.handle_get(item), "value/c8_array")
 
     def handle_int(self, item: str) -> Optional[int]:
         val = self.unpack_xml(self.handle_get(item), "value/u8")
-        if val is None:
-            return None
-
-        return int(val) or None
+        return self.maybe(val, int)
 
     # returns an int, assuming the value does not exceed 8 bits
     def handle_long(self, item: str) -> Optional[int]:
         val = self.unpack_xml(self.handle_get(item), "value/u32")
-        if val is None:
-            return None
-
-        return int(val) or None
+        return self.maybe(val, int)
 
     def handle_list(self, item: str) -> List[Dict[str, Optional[DataItem]]]:
         def handle_field(field: ET.Element) -> Tuple[str, Optional[DataItem]]:
@@ -138,10 +141,8 @@ class FSAPI(object):
             if 'name' in field.attrib:
                 id = field.attrib['name']
                 s = self.unpack_xml(field, 'c8_array')
-                v = self.unpack_xml(field, 'u8')
-                if v is not None:
-                    return (id, int(v))
-                return (id, s)
+                v = self.maybe(self.unpack_xml(field, 'u8'), int)
+                return (id, s or v)
             return ("", None)
 
         def handle_item(item: ET.Element) -> Dict[str, Optional[DataItem]]:
@@ -173,7 +174,9 @@ class FSAPI(object):
     @property
     def play_status(self) -> Optional[str]:
         status = self.handle_int('netRemote.play.status')
-        return self.PLAY_STATES.get(status)
+        if status is not None:
+            return self.PLAY_STATES.get(status)
+        return None
 
     @property
     def play_info_name(self) -> Optional[str]:
