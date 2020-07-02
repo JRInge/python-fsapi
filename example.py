@@ -1,8 +1,8 @@
 from fsapi import FSAPI
 
 URL = 'http://192.168.1.39:80/device'
-PIN = 1234
-TIMEOUT = 1 # in seconds
+PIN = "1234"
+TIMEOUT = 1  # in seconds
 
 fs = FSAPI(URL, PIN, TIMEOUT)
 print('Name: %s' % fs.friendly_name)
