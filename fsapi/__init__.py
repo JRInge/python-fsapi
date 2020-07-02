@@ -115,12 +115,13 @@ class FSAPI(object):
 
         if not doc.status == 'FS_OK':
             return []
-
-        ret: List[Optional[Dict[str, int]]] = list()
-        for index, item in enumerate(list(doc.iterchildren('item'))):
-            temp = dict(band=index)
+        ret: List[Dict[str, Optional[DataItem]]] = list()
+        for item in list(doc.iterchildren('item')):
+            temp: Dict[str, Optional[DataItem]] = dict()
             for field in list(item.iterchildren()):
                 temp[field.get('name')] = list(field.iterchildren()).pop()
+            if 'key' in item.attrib:
+                temp['key'] = item.attrib.get('key')
             ret.append(temp)
 
         return ret
@@ -228,20 +229,20 @@ class FSAPI(object):
     def mode(self) -> str:
         mode = None
         int_mode = self.handle_long('netRemote.sys.mode')
-        for temp_mode in self.modes:
-            if temp_mode['band'] == int_mode:
-                mode = temp_mode['label']
-
+        if int_mode is not None:
+            for temp_mode in self.modes:
+                if temp_mode['key'] == str(int_mode):
+                    mode = temp_mode['label']
         return str(mode)
 
     @mode.setter
     def mode(self, value: str) -> None:
-        mode: DataItem = "-1"
         for temp_mode in self.modes:
-            if temp_mode['label'] == value:
-                mode = temp_mode['band']
-
-        self.handle_set('netRemote.sys.mode', mode)
+            if 'label' in temp_mode and 'key' in temp_mode:
+                if temp_mode['label'] == value:
+                    mode = temp_mode['key']
+                    if mode is not None:
+                        self.handle_set('netRemote.sys.mode', mode)
 
     @property
     def duration(self) -> Optional[int]:
