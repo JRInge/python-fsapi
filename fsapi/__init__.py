@@ -16,6 +16,7 @@ DataItem = Union[str, int]
 class FSAPI(object):
 
     DEFAULT_TIMEOUT_IN_SECONDS = 1
+    DEFAULT_PIN = "1234"
 
     PLAY_STATES = {
         0: 'stopped',
@@ -26,7 +27,7 @@ class FSAPI(object):
 
     def __init__(self,
                  fsapi_device_url: str,
-                 pin: str,
+                 pin: str = DEFAULT_PIN,
                  timeout: int = DEFAULT_TIMEOUT_IN_SECONDS):
         self.pin = pin
         self.sid: Optional[str] = None
