@@ -1,5 +1,6 @@
 ## python-fsapi
-![](https://img.shields.io/travis/com/JRInge/python-fsapi?style=flat-square)
+![](https://img.shields.io/badge/python-3.6%20|%203.7%20|%203.8-informational?style=flat-square&logo=Python) [![](https://img.shields.io/travis/com/JRInge/python-fsapi?style=flat-square)](https://travis-ci.com/github/JRInge/python-fsapi)
+
 Python implementation of the Frontier Silicon API for digital radios and streaming devices.
 - This project was started in order to embed Frontier Silicon devices in Home Assistant (https://home-assistant.io/)
 - Inspired by:
