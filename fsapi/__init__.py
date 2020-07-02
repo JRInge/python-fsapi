@@ -4,9 +4,8 @@ For example internet radios from: Medion, Hama, Auna, ...
 """
 import requests
 import logging
-import traceback
-from lxml import objectify  # type: ignore
-from typing import Any, Dict, List, Optional, Union, cast
+import xml.etree.ElementTree as ET
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 DataItem = Union[str, int]
@@ -33,79 +32,123 @@ class FSAPI(object):
         self.webfsapi = self.get_fsapi_endpoint()
         self.sid = self.create_session()
 
-    def get_fsapi_endpoint(self) -> str:
-        endpoint = requests.get(self.fsapi_device_url, timeout = self.timeout)
-        doc = objectify.fromstring(endpoint.content)
-        return cast(str, doc.webfsapi.text)
-
-    def create_session(self) -> Optional[str]:
-        doc = self.call('CREATE_SESSION')
-        return cast(str, doc.sessionId.text)
-
-    def call(self, path: str, extra: Optional[Dict[str, DataItem]] = None) -> Optional[objectify.ObjectifiedElement]:
-        """Execute a frontier silicon API call."""
-        try:
-            if not self.webfsapi:
-                raise Exception('No server found')
-
-            if type(extra) is not dict:
-                extra = dict()
-
-            params: Dict[str, DataItem] = dict(
-                pin=self.pin,
-                sid=self.sid,
-            )
-
-            params.update(**cast(Dict[str, Union[int, str]],extra)) # By now, this is definitely a Dict
-
-            result = requests.get('%s/%s' % (self.webfsapi, path), params=params, timeout = self.timeout)
-            if result.status_code == 404:
-                return None
-
-            return objectify.fromstring(result.content)
-        except Exception as e:
-            logging.error('FSAPI Exception: ' + traceback.format_exc())
-
+    @staticmethod
+    def unpack_xml(root: Optional[ET.Element], key: str) -> Optional[str]:
+        if root:
+            element = root.find(key)
+            if hasattr(element, "text"):
+                return str(element.text)  # type: ignore
         return None
 
-    def __del__(self) -> None:
-        self.call('DELETE_SESSION')
+    def get_fsapi_endpoint(self) -> str:
+        try:
+            endpoint = requests.get(self.fsapi_device_url,
+                                    timeout=self.timeout)
+        except requests.exceptions.Timeout:
+            raise TimeoutError("FSAPI could not get a response from {}"
+                               .format(self.fsapi_device_url))
+        except requests.exceptions.RequestException:
+            raise ConnectionError("FSAPI could not connect to {}"
+                                  .format(self.fsapi_device_url))
+
+        doc = ET.fromstring(endpoint.content)
+        api = doc.find("webfsapi")
+        if api is not None and api.text:
+            return api.text
+        else:
+            raise ConnectionRefusedError("FSAPI endpoint not found at {}"
+                                         .format(self.fsapi_device_url))
+
+        return self.unpack_xml(self.call('CREATE_SESSION'), "sessionId")
+
+    def create_session(self) -> Optional[str]:
+        return self.unpack_xml(self.call('CREATE_SESSION'), "sessionId")
+
+    def call(self,
+             path: str,
+             extra: Optional[Dict[str, DataItem]] = None)\
+            -> Optional[ET.Element]:
+        """Execute a frontier silicon API call."""
+        if not self.webfsapi:
+            raise RuntimeError("FSAPI not successfully initialised.")
+
+        params: Dict[str, DataItem] = dict(pin=self.pin)
+        if self.sid:
+            params.update(sid=self.sid)
+        if extra is not None:
+            params.update(**extra)
+
+        result = requests.get('%s/%s' % (self.webfsapi, path),
+                              params=params,
+                              timeout=self.timeout)
+        if result.status_code == 403:
+            raise PermissionError("FSAPI access denied - incorrect PIN")
+        if result.status_code == 404:
+            # Bad session ID or service endpoint
+            logging.warn("FSAPI service call failed to %s/%s"
+                         % (self.webfsapi, path))
+            return None
+
+        doc = ET.fromstring(result.content)
+        status = self.unpack_xml(doc, "status")
+        if status == "FS_NODE_DOES_NOT_EXIST":
+            raise NotImplementedError("FSAPI service %s not implemented at %s."
+                                      % (path, self.webfsapi))
+        if status == "FS_OK":
+            return doc
+
+        logging.warn("Unexpected FSAPI status %s" % status)
+        return None
 
     # Handlers
 
-    def handle_get(self, item: str) -> Optional[objectify.ObjectifiedElement]:
+    def handle_get(self, item: str) -> Optional[ET.Element]:
         return self.call('GET/{}'.format(item))
 
     def handle_set(self, item: str, value: Any) -> Optional[bool]:
-        doc = self.call('SET/{}'.format(item), dict(value=value))
-        if doc is None:
+        status = self.unpack_xml(self.call('SET/{}'.format(item),
+                                 dict(value=value)), "status")
+        if status is None:
             return None
 
-        return cast(str, doc.status) == 'FS_OK'
+        return status == 'FS_OK'
 
     def handle_text(self, item: str) -> Optional[str]:
-        doc = self.handle_get(item)
-        if doc is None:
-            return None
-
-        return cast(str, doc.value.c8_array.text) or None
+        return self.unpack_xml(self.handle_get(item), "value/c8_array")
 
     def handle_int(self, item: str) -> Optional[int]:
-        doc = self.handle_get(item)
-        if doc is None:
+        val = self.unpack_xml(self.handle_get(item), "value/u8")
+        if val is None:
             return None
 
-        return int(doc.value.u8.text) or None
+        return int(val) or None
 
     # returns an int, assuming the value does not exceed 8 bits
     def handle_long(self, item: str) -> Optional[int]:
-        doc = self.handle_get(item)
-        if doc is None:
+        val = self.unpack_xml(self.handle_get(item), "value/u32")
+        if val is None:
             return None
 
-        return int(doc.value.u32.text) or None
+        return int(val) or None
 
     def handle_list(self, item: str) -> List[Dict[str, Optional[DataItem]]]:
+        def handle_field(field: ET.Element) -> Tuple[str, Optional[DataItem]]:
+            # TODO: Handle other field types
+            if 'name' in field.attrib:
+                id = field.attrib['name']
+                s = self.unpack_xml(field, 'c8_array')
+                v = self.unpack_xml(field, 'u8')
+                if v is not None:
+                    return (id, int(v))
+                return (id, s)
+            return ("", None)
+
+        def handle_item(item: ET.Element) -> Dict[str, Optional[DataItem]]:
+            ret = dict(map(handle_field, item.findall('field')))
+            if 'key' in item.attrib:
+                ret['key'] = item.attrib['key']
+            return ret
+
         doc = self.call('LIST_GET_NEXT/'+item+'/-1', dict(
             maxItems=100,
         ))
@@ -113,18 +156,11 @@ class FSAPI(object):
         if doc is None:
             return []
 
-        if not doc.status == 'FS_OK':
+        status = self.unpack_xml(doc, "status")
+        if not status == 'FS_OK':
             return []
-        ret: List[Dict[str, Optional[DataItem]]] = list()
-        for item in list(doc.iterchildren('item')):
-            temp: Dict[str, Optional[DataItem]] = dict()
-            for field in list(item.iterchildren()):
-                temp[field.get('name')] = list(field.iterchildren()).pop()
-            if 'key' in item.attrib:
-                temp['key'] = item.attrib.get('key')
-            ret.append(temp)
 
-        return ret
+        return list(map(handle_item, doc.findall('item')))
 
     def collect_labels(self, items: List[Dict[str, Any]]) -> List[str]:
         if items is None:
