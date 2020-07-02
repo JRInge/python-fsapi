@@ -22,7 +22,10 @@ class FSAPI(object):
         3: 'paused',
     }
 
-    def __init__(self, fsapi_device_url: str, pin: str, timeout: int = DEFAULT_TIMEOUT_IN_SECONDS):
+    def __init__(self,
+                 fsapi_device_url: str,
+                 pin: str,
+                 timeout: int = DEFAULT_TIMEOUT_IN_SECONDS):
         self.pin = pin
         self.sid: Optional[str] = None
         self.webfsapi: Optional[str] = None
@@ -58,8 +61,6 @@ class FSAPI(object):
         else:
             raise ConnectionRefusedError("FSAPI endpoint not found at {}"
                                          .format(self.fsapi_device_url))
-
-        return self.unpack_xml(self.call('CREATE_SESSION'), "sessionId")
 
     def create_session(self) -> Optional[str]:
         return self.unpack_xml(self.call('CREATE_SESSION'), "sessionId")
