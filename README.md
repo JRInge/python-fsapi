@@ -5,7 +5,6 @@ Python implementation of the Frontier Silicon API for digital radios and streami
 - Inspired by:
   - https://github.com/flammy/fsapi/
   - https://github.com/tiwilliam/fsapi
-  - https://github.com/p2baron/fsapi
   - https://github.com/zhelev/python-fsapi
 
 The current fork has been developed to run on [QPython](https://play.google.com/store/apps/details?id=org.qpython.qpy), to allow scripted control of digital radios from an Android phone.  The @zhelev version was dependent on `lxml`, which does not work on QPython as it relies on native libraries that have not been ported to Android.  This fork uses the standard `xml.etree` library, which is packaged with QPython.
