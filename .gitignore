@@ -1,6 +1,11 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+*.egg-info/
 
 #MyPy
 .mypy_cache/ 
+
+#Coverage
+.coverage
+coverage.xml
